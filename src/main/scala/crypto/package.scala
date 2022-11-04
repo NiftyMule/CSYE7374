@@ -5,7 +5,7 @@ package object crypto {
      *
      * @param x an Int.
      */
-//noinspection NoTargetNameAnnotationForOperatorLikeDefinition
+    //noinspection NoTargetNameAnnotationForOperatorLikeDefinition
     implicit class Divides(x: Int) {
         /**
          * Method to test if x divides y.
@@ -62,7 +62,7 @@ package object crypto {
      *
      * @param x an Int.
      */
-//noinspection NoTargetNameAnnotationForOperatorLikeDefinition
+    //noinspection NoTargetNameAnnotationForOperatorLikeDefinition
     implicit class BigIntDivides(x: BigInt) {
         /**
          * Method to test if x divides y.

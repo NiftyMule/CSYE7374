@@ -137,6 +137,8 @@ case class Prime(n: BigInt) extends AnyVal with Ordered[Prime] {
    *
    * NOTE: This is a very expensive operation as it essentially performs an E-sieve on the given prime.
    *
+   * XXX it seems to gotten slower since an earlier version as validating the Mersenne primes takes a long time.
+   *
    * @return true if this number is prime.
    */
   @unused
@@ -462,7 +464,15 @@ object Prime {
    * @return true if n is probably prime.
    */
   def isProbableOddPrime(p: BigInt): Boolean =
-    hundredPrimes.contains(Prime(p)) || (p <= 7 || !hasSmallFactor(p)) && !carmichael.contains(p) && MillerRabin.isProbablePrime(p)
+    isSmallPrime(p) || (p <= 7 || !hasSmallFactor(p)) && !carmichael.contains(p) && MillerRabin.isProbablePrime(p)
+
+  /**
+   * Method to determine if p is one of the first one hundred primes.
+   *
+   * @param p a candidate BigInt
+   * @return true if p is in hundredPrimes.
+   */
+  def isSmallPrime(p: BigInt): Boolean = hundredPrimes.contains(Prime(p))
 
   /**
    * Method to determine if n is a probable prime.
@@ -480,7 +490,7 @@ object Prime {
    * @return true if n is a Carmichael Number.
    */
   def isCarmichaelNumber(n: BigInt): Boolean =
-    carmichael.contains(n) || !hundredPrimes.contains(Prime(n)) && n != 1 && !(2 |> n) && carmichaelTheoremApplies(n)
+    carmichael.contains(n) || !isSmallPrime(n) && n != 1 && !(2 |> n) && carmichaelTheoremApplies(n)
 
   private def carmichaelTheoremApplies(n: BigInt) =
     val factors: Map[Prime, Int] = primeFactorMultiplicity(n)

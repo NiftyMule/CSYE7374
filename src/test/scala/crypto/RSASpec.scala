@@ -2,7 +2,6 @@ package crypto
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
-
 import scala.util.Random
 
 class RSASpec extends AnyFlatSpec with should.Matchers {
@@ -30,11 +29,9 @@ class RSASpec extends AnyFlatSpec with should.Matchers {
     target.privateKey shouldBe Key(3233, 413)
   }
 
-  // FIXME
-  ignore should "roundTrip" in {
-    val target = RSA.apply
-    target.encrypt(msgPlain) shouldBe msgCipher
-    target.decrypt(msgCipher) shouldBe msgPlain
+  it should "roundTrip" in {
+    val target: RSA = RSA.apply
+    target.decrypt(target.encrypt(msgPlain)) shouldBe msgPlain
   }
 
 }

@@ -1,14 +1,18 @@
 package crypto
 
 import java.math.BigInteger
-import java.util.Random
+import scala.util.Random
 
 class RandomState(r: Random) {
-  def value(bits: Int): BigInt = new BigInteger(bits, r)
+  def value(bits: Int): BigInt = new BigInteger(bits, r.self)
 
   def value(x: BigInt): BigInt = value(x.bitLength) % x
 
   def next: RandomState = RandomState(r.nextLong())
+
+  def bytes(n: Int): Array[Byte] = r.nextBytes(n)
+
+  def lazyList: LazyList[RandomState] = LazyList.iterate(this)(r => r.next)
 }
 
 object RandomState {

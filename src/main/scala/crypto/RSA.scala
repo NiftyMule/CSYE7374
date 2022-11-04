@@ -43,7 +43,8 @@ object RSA {
 
     val n: BigInt = p * q
     val totient: BigInt = reducedTotient(n)
-    val primes: List[Prime] = smallPrimes(totient).toList.filter(p => p.validate).filter(p => p.isCoprimeTo(totient))
+    val maxCandidates = 100 // this is arbitrary
+    val primes = smallPrimes(totient) filter (p => p.validate) filter (p => p.isCoprimeTo(totient)) take maxCandidates to List
     // NOTE: e does not have to be prime. But, if it is, we don't then have to check if it's relatively prime with totient.
     // NOTE: e should be relatively small (for efficiency) so, ideally, we should favor the smaller values.
     val e: Prime = primes(f(random, primes.length))
