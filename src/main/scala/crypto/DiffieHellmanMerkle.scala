@@ -41,7 +41,7 @@ case class DiffieHellmanMerkle(modulus: Prime, generator: BigInt) {
    */
   def multiplicativeInverse(a: BigInt): BigInt = modPow(a)(modulus.toBigInt - 2)
 
-    private def getSecret(receivedKey: BigInt)(privateKey: BigInt): BigInt = ??? // TODO implement me.
+    private def getSecret(receivedKey: BigInt)(privateKey: BigInt): BigInt = modPow(receivedKey)(privateKey)
 
   /**
    * Method to determine base raised to the power with result modulo modulus (the prime of this DiffieHellmanMerkle).

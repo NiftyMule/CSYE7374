@@ -123,7 +123,7 @@ class PrimesSpec extends AnyFlatSpec with should.Matchers {
     p23.multiplicativeInverse(9) shouldBe 18
   }
 
-  ignore should "multiplicativeInverse2" in {
+  it should "multiplicativeInverse2" in {
     val g = 7
     val z = p17.modPow(g, 10)
     z shouldBe 2

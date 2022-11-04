@@ -116,10 +116,21 @@ case class Prime(n: BigInt) extends AnyVal with Ordered[Prime] {
    * @param a a BigInt: the candidate primitive root.
    * @return true if a is a primitive root of this.
    */
-  def testPrimitiveRoot(a: BigInt): Boolean = toIntOption match {
-    case Some(p) => (2 until p - 1).forall(j => modPow(a, j) != 1)
-    case None => throw PrimeException(s"testPrimitiveRoot: this prime is too big")
+  def testPrimitiveRoot(a: BigInt): Boolean = {
+    var i:BigInt = 2
+    var pow:BigInt = modPow(a, 2)
+    while (i < n - 1) {
+      if (pow == 1) return false
+      pow = (pow * a) % n
+      i = i + 1
+    }
+    true
   }
+//    toIntOption match {
+//      case Some(p) => (2 until p - 1).forall(j => modPow(a, j) != 1)
+//      case None => throw PrimeException(s"testPrimitiveRoot: this prime is too big")
+//    }
+//  }
 
   /**
    * Validate whether this number really is prime.
@@ -626,7 +637,8 @@ object MillerRabin {
     var a_to_power: BigInt = a.modPow(d, n)
     if (a_to_power == 1) return true
     else for (_ <- 1 to s) {
-      // TODO insert appropriate code here.
+      if (a_to_power == n - 1) return true
+      else a_to_power = a_to_power.modPow(2, n)
     }
     a_to_power == n - 1
 

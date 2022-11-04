@@ -17,9 +17,9 @@ import scala.util.matching.Regex
  * @param shift the number of places each letter will be shifted.
  */
 case class CaesarCipher(shift: Int) extends Cipher {
-    def encrypt(w: CharSequence): CharSequence = ??? // TODO implement me
+    def encrypt(w: CharSequence): CharSequence = for (c <- preparePlainText(w.toString)) yield doShift(c, shift)
 
-    def decrypt(w: CharSequence): CharSequence = ??? // TODO implement me
+    def decrypt(w: CharSequence): CharSequence = for (c <- w.toString) yield doShift(c, -shift)
 }
 
 object CaesarCipher {
