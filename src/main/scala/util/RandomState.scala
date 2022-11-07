@@ -1,4 +1,4 @@
-package crypto
+package util
 
 import java.math.BigInteger
 import scala.util.Random
