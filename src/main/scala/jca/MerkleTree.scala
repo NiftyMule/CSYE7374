@@ -4,14 +4,15 @@ import cats.effect.std.Dispatcher
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Async, IO, Resource, Sync}
 import java.nio.charset.StandardCharsets
+import java.security
 import java.security.SecureRandom
 import jca.MerkleTree.Bytes
 import scala.annotation.tailrec
-import scala.util.Random
+import scala.util.{Random, Try}
 import tsec.hashing.CryptoHash
 import tsec.hashing.bouncy.Keccak256
 import tsec.hashing.jca.*
-import util.RandomState
+import util.{DevRandom, RandomState}
 
 /**
  * This class was originally contributed by Zhilue Wang (NiftyMule on github).
@@ -139,14 +140,9 @@ def inner(hms: Seq[MerkleTree[H]]): MerkleTree[H] = {
 
 object test extends App {
 
+    val ry: Try[SecureRandom] = for (bs <- DevRandom.getRandom(64); r = new SecureRandom(bs)) yield r
 
-//    val file = new File("/dev/random")
-//
-//    val source: Any = Source.fromFile(file)
-
-    val z: SecureRandom = new SecureRandom()
-
-    println(z.nextLong())
+    ry foreach (r => println(r.nextLong()))
 
     val strings = Array(
         "When I was one-and-twenty",
