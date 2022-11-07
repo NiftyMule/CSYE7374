@@ -16,6 +16,12 @@ class ExamSpec extends AnyFlatSpec with should.Matchers {
         Exam.gcd(5, 7) shouldBe 1L
     }
 
+    it should "get" in {
+        val r = RandomState.intRandomStateBoundedSeeded(100)(0L)
+        r.get shouldBe 48
+        r.get shouldBe 48
+    }
+
     it should "hundredPrimes.count" in {
         hundredPrimes.count(_ < 100) shouldBe 25
         hundredPrimes.count(_ < 200) shouldBe 46

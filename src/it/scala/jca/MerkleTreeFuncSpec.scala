@@ -3,7 +3,6 @@ package jca
 import cats.effect.std.Dispatcher
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Async, IO, Resource, Sync}
-import crypto.RandomState
 import jca.MerkleTree.Bytes
 import jca.test.tree
 import org.scalatest.flatspec.AnyFlatSpec
@@ -13,6 +12,7 @@ import scala.util.Random
 import tsec.hashing.CryptoHash
 import tsec.hashing.bouncy.Keccak256
 import tsec.hashing.jca.*
+import util.RandomState
 
 class MerkleTreeFuncSpec extends AnyFlatSpec with should.Matchers {
 
@@ -34,6 +34,7 @@ class MerkleTreeFuncSpec extends AnyFlatSpec with should.Matchers {
             case Some(nonce, hash) =>
                 util.Hex.bytesToHexString(nonce) shouldBe "3ECEA0ECEE"
                 util.Hex.bytesToHexString(hash) shouldBe "000003313A5FB6410B08ACD4C160607EB19B75BBC3E110FAC2EA544D325FDF56"
+            case _ => fail("Unable to find suitable hash")
             case _ => fail("Unable to find suitable hash")
         }
     }

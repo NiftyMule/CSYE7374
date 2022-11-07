@@ -3,13 +3,15 @@ package jca
 import cats.effect.std.Dispatcher
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Async, IO, Resource, Sync}
-import crypto.RandomState
+import java.nio.charset.StandardCharsets
+import java.security.SecureRandom
 import jca.MerkleTree.Bytes
 import scala.annotation.tailrec
 import scala.util.Random
 import tsec.hashing.CryptoHash
 import tsec.hashing.bouncy.Keccak256
 import tsec.hashing.jca.*
+import util.RandomState
 
 /**
  * This class was originally contributed by Zhilue Wang (NiftyMule on github).
@@ -23,6 +25,14 @@ trait MerkleTree[H] {
      * @return an IO[H]
      */
     def getHash: IO[H]
+
+    /**
+     * Method to render a MerkleTree with indentation given by x.
+     *
+     * @param x the indentation.
+     * @return a String representing the rendering of this MerkleTree.
+     */
+    def render(x: Int): String
 }
 
 /**
@@ -40,6 +50,13 @@ case class MerkleTreeNode[H: Hashable](left: MerkleTree[H], right: MerkleTree[H]
         rightHash <- right.getHash
         hash <- hh.hash(hh.bytes(leftHash) ++ hh.bytes(rightHash))
     } yield hash
+
+    override def toString: String = render(0)
+
+    def render(x: Int): String = {
+        val padding = MerkleTree.pad(x)
+        s"${padding}MerkleTreeNode:\n:${padding}left:\n${left.render(x + 1)}\n:${padding}right:\n${right.render(x + 1)}\n"
+    }
 }
 
 /**
@@ -50,6 +67,10 @@ case class MerkleTreeNode[H: Hashable](left: MerkleTree[H], right: MerkleTree[H]
  */
 case class MerkleTreeLeaf[H: Hashable](content: Array[Byte]) extends MerkleTree[H] {
     def getHash: IO[H] = implicitly[Hashable[H]].hash(content)
+
+    override def render(x: Int): String = MerkleTree.pad(x) + String(content, StandardCharsets.UTF_8)
+
+    override def toString: String = render(0)
 }
 
 object MerkleTreeLeaf {
@@ -69,18 +90,24 @@ object MerkleTree {
     /**
      * Method to construct a MerkleTree from a sequence of byte arrays (typically corresponding to strings).
      *
-     * @param seq a sequence of byte arrays.
+     * @param bas a sequence of byte arrays.
      * @tparam H the underlying hash type.
      * @return a MerkleTree[H].
      */
-    def apply[H: Hashable](seq: Seq[Bytes]): MerkleTree[H] = {
-        @tailrec
-        def inner(seq: Seq[MerkleTree[H]]): MerkleTree[H] = {
-            val newSeq: Seq[MerkleTree[H]] = seq.grouped(2).map(x => if x.length == 1 then x.head else MerkleTreeNode(x.head, x.last)).toSeq
-            if newSeq.length > 1 then inner(newSeq) else newSeq.head
-        }
+    def apply[H: Hashable](bas: Seq[Bytes]): MerkleTree[H] = {
+        //        @tailrec
+//        def myInner(r: MerkleTree[H], hms: Seq[MerkleTree[H]]): MerkleTree[H] = hms match {
+//            case Nil => r
+//            case hm :: Nil => hm
+//            case
+//        }
+@tailrec
+def inner(hms: Seq[MerkleTree[H]]): MerkleTree[H] = {
+    val newSeq: Seq[MerkleTree[H]] = hms.grouped(2).map(x => if x.length == 1 then x.head else MerkleTreeNode(x.head, x.last)).toSeq
+    if newSeq.length > 1 then inner(newSeq) else newSeq.head
+}
 
-        inner(seq.map(MerkleTreeLeaf.apply))
+        inner(bas.map(MerkleTreeLeaf.apply))
     }
 
     /**
@@ -104,11 +131,22 @@ object MerkleTree {
         val block = priorBlockHash +: (elements map (_.getBytes))
         val nonces = randomState.lazyList map (r => r.bytes(nBytesNonce))
         val candidates = nonces map (nonce => nonce -> MerkleTree[H](block :+ nonce))
-        (candidates map nonceAndHash dropWhile rejectNonceWithHash take 1 to List).headOption
+        (candidates map nonceAndHash dropWhile rejectNonceWithHash take 1).headOption
     }
+
+    def pad(x: Int): String = "  " * x
 }
 
 object test extends App {
+
+
+//    val file = new File("/dev/random")
+//
+//    val source: Any = Source.fromFile(file)
+
+    val z: SecureRandom = new SecureRandom()
+
+    println(z.nextLong())
 
     val strings = Array(
         "When I was one-and-twenty",

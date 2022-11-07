@@ -1,8 +1,8 @@
 package crypto
 
-import crypto.RandomState.lazyList
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
+import util.RandomState
 
 class RandomStateSpec extends AnyFlatSpec with should.Matchers {
 
@@ -14,7 +14,7 @@ class RandomStateSpec extends AnyFlatSpec with should.Matchers {
   }
 
   it should "object lazyList" in {
-    val rs = lazyList(0L)
+    val rs = util.RandomState.lazyList(0L)
     val xs = rs.map(_.value(BigInt(1000))).take(10).toList
     xs.head shouldBe BigInt(180)
     xs.tail.head shouldBe BigInt(162)
