@@ -131,18 +131,21 @@ object MerkleTree {
      * @param miningFunction a function which takes a byte array representing a hash, and returns true if the hash conforms.
      * @param randomState    an instance of RandomState.
      * @tparam H the underlying hash type.
-     * @return an Option of tuple of Array[Byte]: nonce and hash for first nonce that results in 20 zero bits.
+     * @return an IO or an Option of tuple of Array[Byte]: nonce and hash for first nonce that results in 20 zero bits.
      */
-    def mineMerkleTreeBlock[H: Hashable](elements: Seq[String], priorBlockHash: Bytes, nBytesNonce: Int)(miningFunction: Bytes => Boolean)(randomState: RandomState): Option[(Bytes, Bytes)] = {
+    def mineMerkleTreeBlock[H: Hashable](elements: Seq[String], priorBlockHash: Bytes, nBytesNonce: Int)(miningFunction: Bytes => Boolean)(randomState: RandomState): IO[Option[(Bytes, Bytes)]] = {
         val hh = implicitly[Hashable[H]]
 
-        def rejectNonceWithHash(nwh: (Bytes, Bytes)): Boolean = !miningFunction(nwh._2)
+        def rejectNonceWithHash(nwh: IO[(Bytes, Bytes)]): Boolean = (for (z <- nwh) yield !miningFunction(z._2)).unsafeRunSync()
 
-        def nonceAndHash(nonce: Bytes, tree: MerkleTree[H]): (Bytes, Bytes) = nonce -> hh.bytes(tree.getHash.unsafeRunSync())
+        def nonceAndHash(nonce: Bytes, tree: MerkleTree[H]): IO[(Bytes, Bytes)] = for (hash <- tree.getHash) yield nonce -> hh.bytes(hash)
 
         val nonces = randomState.lazyList map (r => r.bytes(nBytesNonce))
-        val candidates = nonces map (nonce => nonce -> MerkleTree[H](merkleTreeBlock(elements, priorBlockHash, nonce)))
-        (candidates map nonceAndHash dropWhile rejectNonceWithHash take 1).headOption
+        val candidates: LazyList[(Bytes, MerkleTree[H])] = nonces map (nonce => nonce -> MerkleTree[H](merkleTreeBlock(elements, priorBlockHash, nonce)))
+        import cats.implicits.* // Required to sequence Option/IO.
+        // NOTE that sequence won't work properly on a LazyList. I'm not sure if this is a bug or my (RCH) bad logic.
+        // For now, therefore, the rejectNonceWithHash method must invoke unsafeRunSync in order to return an actual Boolean.
+        (candidates map nonceAndHash dropWhile rejectNonceWithHash take 1).headOption.sequence
     }
 
     /**
@@ -210,7 +213,7 @@ object test extends App {
 
     val start = System.nanoTime()
     val priorBlockHash = "00000dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824".getBytes()
-    val result = MerkleTree.mineMerkleTreeBlock(transactions, priorBlockHash, 5)(checkBlockHash)(RandomState(3L))
+    val result = MerkleTree.mineMerkleTreeBlock(transactions, priorBlockHash, 5)(checkBlockHash)(RandomState(3L)).unsafeRunSync()
     val end = System.nanoTime()
     val elapsed = end - start
     println("duration: " + elapsed + "ns")
