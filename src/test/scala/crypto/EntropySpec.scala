@@ -1,5 +1,6 @@
 package crypto
 
+import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
@@ -9,10 +10,17 @@ class EntropySpec extends AnyFlatSpec with should.Matchers {
 
     behavior of "Entropy"
 
-    it should "getEntropy" in {
-        val hex1 = Hex.bytesToHexString(Entropy.getEntropy(16).unsafeRunSync())
-        val hex2 = Hex.bytesToHexString(Entropy.getEntropy(16).unsafeRunSync())
-        hex1 shouldNot be(hex2)
+    it should "getEntropy 1" in {
+        val bai: IO[Array[Byte]] = Entropy.getEntropy(252)
+        bai.unsafeRunSync().length shouldBe 32
+    }
+
+    it should "getEntropy 2" in {
+        val same: IO[Boolean] = for {
+            bytes1 <- Entropy.getEntropy(256)
+            bytes2 <- Entropy.getEntropy(256)
+        } yield Hex.bytesToHexString(bytes1) == Hex.bytesToHexString(bytes2)
+        same.unsafeRunSync() shouldBe false
     }
 
 }
