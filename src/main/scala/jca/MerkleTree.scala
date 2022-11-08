@@ -3,16 +3,27 @@ package jca
 import cats.effect.std.Dispatcher
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Async, IO, Resource, Sync}
-import java.nio.charset.StandardCharsets
+import java.nio.charset.{Charset, StandardCharsets}
 import java.security
 import java.security.SecureRandom
-import jca.MerkleTree.Bytes
+//import jca.MerkleTree.Bytes
 import scala.annotation.tailrec
 import scala.util.{Random, Try}
 import tsec.hashing.CryptoHash
 import tsec.hashing.bouncy.Keccak256
 import tsec.hashing.jca.*
 import util.{DevRandom, RandomState}
+
+/**
+ * Type alias for an array of Byte.
+ */
+type Bytes = Array[Byte]
+
+/**
+ * Type alias for a sequence of tuples, each of Bytes and Boolean.
+ * The purpose of the Boolean is to indicate if the Bytes can be decoded into a renderable String.
+ */
+type Block = Seq[(Bytes, Boolean)]
 
 /**
  * This class was originally contributed by Zhilue Wang (NiftyMule on github).
@@ -63,13 +74,17 @@ case class MerkleTreeNode[H: Hashable](left: MerkleTree[H], right: MerkleTree[H]
 /**
  * Case class to define a leaf node of a MerkleTree.
  *
- * @param content      the content of the leaf (an array of Byte).
+ * @param content        the content of the leaf (an array of Byte).
+ * @param defaultCharset true if the content can be decoded with defaultCharset.
  * @tparam H the underlying hash type.
  */
-case class MerkleTreeLeaf[H: Hashable](content: Array[Byte]) extends MerkleTree[H] {
+case class MerkleTreeLeaf[H: Hashable](content: Bytes, defaultCharset: Boolean = false) extends MerkleTree[H] {
     def getHash: IO[H] = implicitly[Hashable[H]].hash(content)
 
-    override def render(x: Int): String = MerkleTree.pad(x) + String(content, StandardCharsets.UTF_8)
+    override def render(x: Int): String = {
+        val decodedString = s"""("${String(content)}")"""
+        MerkleTree.pad(x) + util.Hex.bytesToHexString(content) + (if (defaultCharset) decodedString else "")
+    }
 
     override def toString: String = render(0)
 }
@@ -78,37 +93,33 @@ object MerkleTreeLeaf {
     /**
      * Method to create a MerkleTreeLeaf with String content.
      *
-     * @param content      a String.
+     * NOTE: in practice, this is never called.
+     *
+     * @param content a String.
      * @tparam H the underlying hash type.
      * @return a MerkleTreeLeaf[H].
      */
-    def apply[H: Hashable](content: String): MerkleTreeLeaf[H] = apply(content.getBytes)
+    def apply[H: Hashable](content: String): MerkleTreeLeaf[H] = apply(content.getBytes, true)
 }
 
 object MerkleTree {
-    type Bytes = Array[Byte]
 
     /**
      * Method to construct a MerkleTree from a sequence of byte arrays (typically corresponding to strings).
      *
-     * @param bas a sequence of byte arrays.
+     * @param block a sequence of tuples of byte array and boolean.
      * @tparam H the underlying hash type.
      * @return a MerkleTree[H].
      */
-    def apply[H: Hashable](bas: Seq[Bytes]): MerkleTree[H] = {
-        //        @tailrec
-//        def myInner(r: MerkleTree[H], hms: Seq[MerkleTree[H]]): MerkleTree[H] = hms match {
-//            case Nil => r
-//            case hm :: Nil => hm
-//            case
-//        }
-@tailrec
-def inner(hms: Seq[MerkleTree[H]]): MerkleTree[H] = {
-    val newSeq: Seq[MerkleTree[H]] = hms.grouped(2).map(x => if x.length == 1 then x.head else MerkleTreeNode(x.head, x.last)).toSeq
-    if newSeq.length > 1 then inner(newSeq) else newSeq.head
-}
+    def apply[H: Hashable](block: Block): MerkleTree[H] = {
+        @tailrec
+        def inner(hms: Seq[MerkleTree[H]]): MerkleTree[H] = {
+            val newSeq: Seq[MerkleTree[H]] = hms.grouped(2).map(x => if x.length == 1 then x.head else MerkleTreeNode(x.head, x.last)).toSeq
+            if newSeq.length > 1 then inner(newSeq) else newSeq.head
+        }
 
-        inner(bas.map(MerkleTreeLeaf.apply))
+        val f: (Bytes, Boolean) => MerkleTreeLeaf[H] = MerkleTreeLeaf.apply
+        inner(block.map(f.tupled))
     }
 
     /**
@@ -129,11 +140,29 @@ def inner(hms: Seq[MerkleTree[H]]): MerkleTree[H] = {
 
         def nonceAndHash(nonce: Bytes, tree: MerkleTree[H]): (Bytes, Bytes) = nonce -> hh.bytes(tree.getHash.unsafeRunSync())
 
-        val block = priorBlockHash +: (elements map (_.getBytes))
         val nonces = randomState.lazyList map (r => r.bytes(nBytesNonce))
-        val candidates = nonces map (nonce => nonce -> MerkleTree[H](block :+ nonce))
+        val candidates = nonces map (nonce => nonce -> MerkleTree[H](merkleTreeBlock(elements, priorBlockHash, nonce)))
         (candidates map nonceAndHash dropWhile rejectNonceWithHash take 1).headOption
     }
+
+    /**
+     * Method to encode a sequence of Strings as a sequence of (Bytes, Boolean) tuples, as required by MerkleTree.apply.
+     *
+     * @param ws a sequence of String.
+     * @return a Block where all the booleans are true.
+     */
+    def stringsToBlock(ws: Seq[String]): Block = ws map (w => w.getBytes -> true)
+
+    /**
+     * Method to encode a sequence of Strings, together with a prior block hash and a nonce, as a sequence of (Bytes, Boolean) tuples, as required by MerkleTree.apply.
+     *
+     * @param elements       a sequence of String.
+     * @param priorBlockHash the hash of the prior block.
+     * @param nonce          the nonce to be used.
+     * @return a Block.
+     */
+    def merkleTreeBlock(elements: Seq[String], priorBlockHash: Bytes, nonce: Bytes): Block =
+        (priorBlockHash -> false) +: (stringsToBlock(elements) :+ (nonce -> false))
 
     def pad(x: Int): String = "  " * x
 }
@@ -163,7 +192,8 @@ object test extends App {
         "And oh tis true tis true"
     )
 
-    val tree: MerkleTree[CryptoHash[SHA256]] = MerkleTree(strings.map(_.getBytes()))
+    val block: Block = MerkleTree.stringsToBlock(strings)
+    val tree: MerkleTree[CryptoHash[SHA256]] = MerkleTree(block)
     tree.getHash.unsafeRunSync().bytes.foreach(x => print("%02X".format(x)))
     println()
 
