@@ -506,7 +506,7 @@ object Prime {
     val pMinus1 = p - 1
     val n = 20
     if (pMinus1 < n) Range(2, p.toInt).map(BigInt(_))
-    else RandomState.lazyList(System.nanoTime()).map(_.value(pMinus1 - 1) + 2) take n
+    else util.RandomState.lazyList(System.nanoTime()).map(_.value(pMinus1 - 1) + 2) take n
 }
 
 object Primes {
