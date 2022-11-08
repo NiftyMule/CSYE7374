@@ -3,6 +3,7 @@ package jca
 import cats.effect.std.Dispatcher
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Async, IO, Resource, Sync}
+import crypto.Entropy
 import java.nio.charset.{Charset, StandardCharsets}
 import java.security
 import java.security.SecureRandom
@@ -172,9 +173,7 @@ object MerkleTree {
 
 object test extends App {
 
-    val ry: Try[SecureRandom] = for (bs <- DevRandom.getRandom(64); r = new SecureRandom(bs)) yield r
-
-    ry foreach (r => println(r.nextLong()))
+    (for (bs <- Entropy.getEntropy(64); r = new SecureRandom(bs); _ = println(s"random long: ${r.nextLong()}")) yield ()).unsafeRunSync()
 
     val strings = Array(
         "When I was one-and-twenty",
