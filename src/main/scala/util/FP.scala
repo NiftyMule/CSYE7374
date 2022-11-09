@@ -16,6 +16,8 @@ import scala.util.{Failure, Success, Try, Using}
  */
 object FP {
 
+  def optional[T](f: T => Boolean)(t: T): Option[T] = Some(t).filter(f)
+
   /**
    * Sequence method to combine elements of Try.
    *

@@ -3,7 +3,6 @@ package jca
 import cats.effect.std.Dispatcher
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Async, IO, Resource, Sync}
-import jca.MerkleTree.Bytes
 import jca.test.tree
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should
@@ -29,7 +28,7 @@ class MerkleTreeFuncSpec extends AnyFlatSpec with should.Matchers {
             "Robin pays Pranshu 1.000"
         )
         val priorBlockHash = "00000dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824".getBytes()
-        val result = MerkleTree.mineMerkleTreeBlock(transactions, priorBlockHash, 5)(checkBlockHash)(RandomState(3L))
+        val result = MerkleTree.mineMerkleTreeBlock(transactions, priorBlockHash, 5)(checkBlockHash)(RandomState(3L)).unsafeRunSync()
         result match {
             case Some(nonce, hash) =>
                 util.Hex.bytesToHexString(nonce) shouldBe "3ECEA0ECEE"
