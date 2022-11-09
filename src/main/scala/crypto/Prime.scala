@@ -2,13 +2,14 @@ package crypto
 
 import crypto.Prime.{coprime, primeFactorMultiplicity, totient}
 import crypto.Primes.*
+import util.{Benchmark, FP}
+
 import java.lang
 import java.math.BigInteger
 import java.util.function.Consumer
 import scala.annotation.{tailrec, targetName, unused}
 import scala.collection.SortedSet
 import scala.util.{Failure, Random, Success, Try}
-import util.Benchmark
 
 /**
  * Class to represent a (possible) prime number.
@@ -516,7 +517,7 @@ object Prime {
     val pMinus1 = p - 1
     val n = 20
     if (pMinus1 < n) Range(2, p.toInt).map(BigInt(_))
-    else RandomState.lazyList(System.nanoTime()).map(_.value(pMinus1 - 1) + 2) take n
+    else util.RandomState.lazyList(System.nanoTime()).map(_.value(pMinus1 - 1) + 2) take n
 }
 
 object Primes {
