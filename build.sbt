@@ -13,6 +13,7 @@ libraryDependencies ++= Seq(
   "io.github.jmcardon" %% "tsec-hash-jca" % tsecVersion,
   "io.github.jmcardon" %% "tsec-hash-bouncy" % tsecVersion,
   "co.fs2" %% "fs2-core" % fs2Version,
+  "org.typelevel" %% "cats-effect-testing-scalatest" % "1.4.0" % Test,
   "org.scala-lang.modules" %% "scala-parser-combinators" % "2.1.1",
   "com.novocode" % "junit-interface" % "0.11" % "test",
   "org.scalatest" %% "scalatest" % "3.2.14" % Test
