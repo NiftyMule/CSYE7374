@@ -8,11 +8,15 @@ class RandomState(r: Random) {
 
   def value(x: BigInt): BigInt = value(x.bitLength) % x
 
+  def long(max: Long): Long = r.nextLong(max)
+
   def next: RandomState = RandomState(r.nextLong())
 
   def bytes(n: Int): Array[Byte] = r.nextBytes(n)
 
   def lazyList: LazyList[RandomState] = LazyList.iterate(this)(r => r.next)
+
+  override def toString: String = r.nextLong().toString
 }
 
 object RandomState {
