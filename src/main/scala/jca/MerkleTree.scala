@@ -7,13 +7,12 @@ import crypto.Entropy
 import java.nio.charset.{Charset, StandardCharsets}
 import java.security
 import java.security.SecureRandom
-//import jca.MerkleTree.Bytes
 import scala.annotation.tailrec
 import scala.util.{Random, Try}
 import tsec.hashing.CryptoHash
 import tsec.hashing.bouncy.Keccak256
 import tsec.hashing.jca.*
-import util.{DevRandom, RandomState}
+import util.{DevRandom, RandomState, StreamUtils}
 
 /**
  * Type alias for an array of Byte.
@@ -105,6 +104,11 @@ object MerkleTreeLeaf {
 
 object MerkleTree {
 
+    import cats.effect.IO
+    import cats.effect.unsafe.implicits.global
+    import fs2.{Pure, Stream}
+    import util.StreamUtils.*
+
     /**
      * Method to construct a MerkleTree from a sequence of byte arrays (typically corresponding to strings).
      *
@@ -137,16 +141,15 @@ object MerkleTree {
     def mineMerkleTreeBlock[H: Hashable](elements: Seq[String], priorBlockHash: Bytes, nBytesNonce: Int)(miningFunction: Bytes => Boolean)(randomState: RandomState): IO[Option[(Bytes, Bytes)]] = {
         val hh = implicitly[Hashable[H]]
 
-        def rejectNonceWithHash(nwh: IO[(Bytes, Bytes)]): Boolean = (for (z <- nwh) yield !miningFunction(z._2)).unsafeRunSync()
+        def rejectNonceWithHash(nwh: (Bytes, Bytes)): Boolean = !miningFunction(nwh._2)
 
         def nonceAndHash(nonce: Bytes, tree: MerkleTree[H]): IO[(Bytes, Bytes)] = for (hash <- tree.getHash) yield nonce -> hh.bytes(hash)
 
-        val nonces = randomState.lazyList map (r => r.bytes(nBytesNonce))
-        val candidates: LazyList[(Bytes, MerkleTree[H])] = nonces map (nonce => nonce -> MerkleTree[H](merkleTreeBlock(elements, priorBlockHash, nonce)))
-        import cats.implicits.* // Required to sequence Option/IO.
-        // NOTE that sequence won't work properly on a LazyList. I'm not sure if this is a bug or my (RCH) bad logic.
-        // For now, therefore, the rejectNonceWithHash method must invoke unsafeRunSync in order to return an actual Boolean.
-        (candidates map nonceAndHash dropWhile rejectNonceWithHash take 1).headOption.sequence
+        val randomStream = Stream.iterate[IO, RandomState](randomState)(x => x.next)
+        val nonces = randomStream map (x => x.bytes(nBytesNonce))
+        val candidates = nonces map (nonce => nonce -> MerkleTree[H](merkleTreeBlock(elements, priorBlockHash, nonce)))
+        val bbs = (candidates map nonceAndHash).evalMap(identity).dropWhile(rejectNonceWithHash)
+        for (xs <- bbs.take(1).compile.toList) yield xs.headOption
     }
 
     /**
@@ -212,7 +215,7 @@ object test extends App {
 
     val start = System.nanoTime()
     val priorBlockHash = "00000dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824".getBytes()
-    val result = MerkleTree.mineMerkleTreeBlock(transactions, priorBlockHash, 5)(checkBlockHash)(RandomState(3L)).unsafeRunSync()
+    val result = MerkleTree.mineMerkleTreeBlock(transactions, priorBlockHash, 5)(checkBlockHash)(RandomState(1L)).unsafeRunSync()
     val end = System.nanoTime()
     val elapsed = end - start
     println("duration: " + elapsed + "ns")

@@ -17,6 +17,7 @@ class MerkleTreeFuncSpec extends AnyFlatSpec with should.Matchers {
 
     behavior of "MerkleTreeFunc"
 
+    // This should take less than 8 seconds to run
     it should "apply" in {
         // Method to check if bytes begins with 20 bits.
         def checkBlockHash(bytes: Bytes): Boolean = bytes(0) == 0 && bytes(1) == 0 && (bytes(2) & 0xF0) == 0
@@ -28,11 +29,11 @@ class MerkleTreeFuncSpec extends AnyFlatSpec with should.Matchers {
             "Robin pays Pranshu 1.000"
         )
         val priorBlockHash = "00000dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824".getBytes()
-        val result = MerkleTree.mineMerkleTreeBlock(transactions, priorBlockHash, 5)(checkBlockHash)(RandomState(3L)).unsafeRunSync()
+        val result = MerkleTree.mineMerkleTreeBlock(transactions, priorBlockHash, 5)(checkBlockHash)(RandomState(1L)).unsafeRunSync()
         result match {
             case Some(nonce, hash) =>
-                util.Hex.bytesToHexString(nonce) shouldBe "3ECEA0ECEE"
-                util.Hex.bytesToHexString(hash) shouldBe "000003313A5FB6410B08ACD4C160607EB19B75BBC3E110FAC2EA544D325FDF56"
+                util.Hex.bytesToHexString(nonce) shouldBe "30D663C6BC"
+                util.Hex.bytesToHexString(hash) shouldBe "000003E064410F12898CDFBBFC2013D06A2CF2ADABA5E560C195B284B3DBDD4D"
             case _ => fail("Unable to find suitable hash")
             case _ => fail("Unable to find suitable hash")
         }
