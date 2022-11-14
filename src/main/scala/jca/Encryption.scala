@@ -222,8 +222,8 @@ object HexEncryption {
         val f: Int => Option[String] = row.lift
         val g: String => Option[String] = w => Try(keyFunction(w)).toOption
         for {
-            key <- IO.fromOption(ko flatMap g)(EncryptionException(s"Encryption.decryptRow: logic error: row=$row does not include element for hexIndex ($hexIndex)"))
-            hex <- IO.fromOption(f(hexIndex))(EncryptionException(s"Encryption.decryptRow: logic error: row=$row does not include element for hexIndex ($hexIndex)"))
+            key <- IO.fromOption(ko flatMap g)(EncryptionException(s"HexEncryption.decryptRow: logic error: ko=$ko was invalid key for key function"))
+            hex <- IO.fromOption(f(hexIndex))(EncryptionException(s"HexEncryption.decryptRow: logic error: row=$row does not include element for hexIndex ($hexIndex)"))
             decrypted <- implicitly[HexEncryption[A]].decryptHex(key, hex)
         } yield decrypted
     }
