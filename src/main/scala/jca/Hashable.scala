@@ -1,7 +1,6 @@
 package jca
 
 import cats.effect.std.Dispatcher
-import cats.effect.unsafe.implicits.global
 import cats.effect.{Async, IO, Resource, Sync}
 import scala.annotation.tailrec
 import scala.util.Random

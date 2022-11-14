@@ -1,19 +1,21 @@
 package util
 
 import cats.effect.IO
+import cats.effect.testing.scalatest.AsyncIOSpec
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should
-
 import scala.util.{Success, Try}
 
-class DevRandomSpec extends AnyFlatSpec with should.Matchers {
+class DevRandomSpec extends AsyncFreeSpec with AsyncIOSpec with should.Matchers {
 
-    behavior of "DevRandomSpec"
+    "DevRandomSpec" - {
 
-    it should "getRandom" in {
-        val ry: IO[Array[Byte]] = DevRandom.getRandom(8)
-        import cats.effect.unsafe.implicits.global
-        ry.unsafeRunSync().length shouldBe 8
+
+        "getRandom" in {
+            val ry: IO[Array[Byte]] = DevRandom.getRandom(8)
+            ry.asserting(r => r.length shouldBe 8)
+        }
     }
 
 }

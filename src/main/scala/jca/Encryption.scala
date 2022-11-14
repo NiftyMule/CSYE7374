@@ -3,7 +3,7 @@ package jca
 import cats.effect.IO
 import java.util.Base64
 import jca.Encryption.syncRandomLetter
-import scala.util.Random
+import scala.util.{Random, Try}
 import tsec.cipher.symmetric
 import tsec.cipher.symmetric.AADEncryptor
 import tsec.cipher.symmetric.jca.{AES128CTR, AES128GCM, SecretKey}
@@ -186,6 +186,8 @@ object Encryption {
     def syncRandomLetter: IO[Character] = for (random <- asyncRandom; x = alphabet(random.nextInt(alphabet.length))) yield x
 }
 
+case class EncryptionException(w: String, cause: Throwable = null) extends Exception(w, cause)
+
 object HexEncryption {
 
     /**
@@ -218,10 +220,12 @@ object HexEncryption {
         val ko = row.headOption // the first element of the row is the identifier (row-id).
         val hexIndex = 1 // the second (and last) element in the row is the Hex string.
         val f: Int => Option[String] = row.lift
-        (for (key <- ko map keyFunction; hex <- f(hexIndex)) yield (key, hex)) match {
-            case Some(key -> hex) => implicitly[HexEncryption[A]].decryptHex(key, hex)
-            case _ => IO.raiseError(Exception(s"Encryption.decryptRow: logic error: row=$row does not include element for hexIndex ($hexIndex)"))
-        }
+        val g: String => Option[String] = w => Try(keyFunction(w)).toOption
+        for {
+            key <- IO.fromOption(ko flatMap g)(EncryptionException(s"HexEncryption.decryptRow: logic error: ko=$ko was invalid key for key function"))
+            hex <- IO.fromOption(f(hexIndex))(EncryptionException(s"HexEncryption.decryptRow: logic error: row=$row does not include element for hexIndex ($hexIndex)"))
+            decrypted <- implicitly[HexEncryption[A]].decryptHex(key, hex)
+        } yield decrypted
     }
 }
 
@@ -263,7 +267,7 @@ object EncryptionUTF8AES128CTR extends BaseHexEncryption[AES128CTR] {
     def buildKey(rawKey: String): IO[SecretKey[AES128CTR]] =
         if (rawKey.length == AES128CTR.keySizeBytes)
             for (key <- AES128CTR.buildKey[IO](rawKey.utf8Bytes)) yield key
-        else throw new RuntimeException(s"buildKey: incorrect key size ${rawKey.length} (should be ${AES128CTR.keySizeBytes})")
+        else throw new EncryptionException(s"buildKey: incorrect key size ${rawKey.length} (should be ${AES128CTR.keySizeBytes})")
 
     def encrypt(key: SecretKey[AES128CTR])(plaintext: String): IO[symmetric.CipherText[AES128CTR]] =
         AES128CTR.encrypt[IO](PlainText(plaintext.utf8Bytes), key)
@@ -296,7 +300,7 @@ object EncryptionUTF8AES128GCM extends BaseHexEncryption[AES128GCM] {
     def buildKey(rawKey: String): IO[SecretKey[AES128GCM]] =
         if (rawKey.length == AES128GCM.keySizeBytes)
             for (key <- AES128GCM.buildKey[IO](rawKey.utf8Bytes)) yield key
-        else throw new RuntimeException(s"buildKey: incorrect key size ${rawKey.length} (should be ${AES128GCM.keySizeBytes})")
+        else throw new EncryptionException(s"buildKey: incorrect key size ${rawKey.length} (should be ${AES128GCM.keySizeBytes})")
 
     def encrypt(key: SecretKey[AES128GCM])(plaintext: String): IO[symmetric.CipherText[AES128GCM]] = ??? // TODO IMPLEMENT ME
 
