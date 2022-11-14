@@ -2,13 +2,13 @@ package jca
 
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
-import cats.effect.unsafe.implicits.global
 import java.util.Arrays
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should
 import tsec.cipher.symmetric.jca.{AES128CTR, SecretKey}
 
+//noinspection SpellCheckingInspection
 class EncryptionUTF8AES128CTRSpec extends AsyncFreeSpec with AsyncIOSpec with should.Matchers {
 
     "Encryption" - {

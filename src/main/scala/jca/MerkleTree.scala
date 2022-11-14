@@ -2,7 +2,6 @@ package jca
 
 import cats.effect.*
 import cats.effect.std.Dispatcher
-import cats.effect.unsafe.implicits.global
 import crypto.Entropy
 import java.nio.charset.{Charset, StandardCharsets}
 import java.security
@@ -105,7 +104,6 @@ object MerkleTreeLeaf {
 object MerkleTree {
 
     import cats.effect.IO
-    import cats.effect.unsafe.implicits.global
     import fs2.{Pure, Stream}
     import util.StreamUtils.*
 

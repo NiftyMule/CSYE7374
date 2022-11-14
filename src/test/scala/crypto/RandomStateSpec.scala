@@ -32,7 +32,6 @@ class RandomStateSpec extends AsyncFreeSpec with AsyncIOSpec with should.Matcher
         }
 
         "random stream" in {
-            import cats.effect.unsafe.implicits.global
             val r = RandomState(0L)
             import util.StreamUtils.*
             val randomStream: Stream[IO, RandomState] = Stream.iterate[IO, RandomState](r)(x => x.next)
