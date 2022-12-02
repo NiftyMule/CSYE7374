@@ -11,6 +11,7 @@ class DevRandomSpec extends AsyncFreeSpec with AsyncIOSpec with should.Matchers 
 
     "DevRandomSpec" - {
 
+        import util.DevRandom.standardRandom
 
         "getRandom" in {
             val ry: IO[Array[Byte]] = DevRandom.getRandom(8)
