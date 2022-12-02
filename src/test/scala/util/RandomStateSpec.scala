@@ -1,4 +1,4 @@
-package crypto
+package util
 
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
