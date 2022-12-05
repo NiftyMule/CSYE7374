@@ -2,14 +2,13 @@ package crypto
 
 import crypto.Prime.{coprime, primeFactorMultiplicity, totient}
 import crypto.Primes.*
-import util.{Benchmark, FP}
-
 import java.lang
 import java.math.BigInteger
 import java.util.function.Consumer
 import scala.annotation.{tailrec, targetName, unused}
 import scala.collection.SortedSet
 import scala.util.{Failure, Random, Success, Try}
+import util.{Benchmark, FP}
 
 /**
  * Class to represent a (possible) prime number.
@@ -670,6 +669,7 @@ object MillerRabin {
       while (a == 0) {
         a = BigInt("" + (rand.nextDouble * n.doubleValue).toInt)
       }
+        // TODO we need to fix this non-idiomatic Scala code.
       if (!miller_rabin_pass(a, n)) return false
     }
     true

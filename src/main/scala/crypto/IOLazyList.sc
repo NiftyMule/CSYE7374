@@ -1,20 +1,15 @@
 import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import fs2.{Pure, Stream}
 
-val xs = 0 #:: LazyList.from(1)
-val xis: LazyList[IO[Int]] = xs map (x => IO(x))
+val fLessThan10: Int => Boolean = _ < 10
+val lessThan10_2: IO[Int] => IO[Boolean] = _ map fLessThan10
 
-for (xi <- xis) yield for (x <- xi) yield x*2
-//
-//def gatherWhile[T](p: T=>Boolean)(tis: LazyList[IO[T]]): IO[LazyList[T]] =
-//    {
-//        def inner(ri: IO[LazyList[T]], w: LazyList[IO[T]]): IO[LazyList[T]] =
-//            w match {
-//                case LazyList() => ri
-//                case hi #:: t =>
-//                    val z: IO[(LazyList[T], LazyList[IO[T]])] = for (h <- hi; r <- ri) yield if (p(h)) (r :+ h, t) else (r, LazyList())
-//
-//            }
-//    }
-//    tis.foldLeft(LazyList.empty[T]){(r, ti) =>
-//        for (t <- ti) yield if (p(t)) r #:: t else r
-//    }
+def dropWhileEval[A](sa: Stream[IO, IO[A]])(p: IO[A] => IO[Boolean]): Stream[IO, IO[A]] =
+    sa.evalMap(a => p(a).map(b => (b, a))).dropWhile(_._1).map(_._2)
+
+val zz: Stream[IO, IO[Int]] = Stream.iterate[IO, Int](1)(_ + 1).map(x => IO(x * 2))
+val yy: Stream[IO, IO[Int]] = dropWhileEval[Int](zz)(lessThan10_2).take(1)
+val result: IO[List[Int]] = yy.evalMap(identity).compile.toList
+result.unsafeRunSync()
+

@@ -1,19 +1,17 @@
 package jca
 
+import cats.effect.*
 import cats.effect.std.Dispatcher
-import cats.effect.unsafe.implicits.global
-import cats.effect.{Async, IO, Resource, Sync}
 import crypto.Entropy
 import java.nio.charset.{Charset, StandardCharsets}
 import java.security
 import java.security.SecureRandom
-//import jca.MerkleTree.Bytes
 import scala.annotation.tailrec
 import scala.util.{Random, Try}
 import tsec.hashing.CryptoHash
 import tsec.hashing.bouncy.Keccak256
 import tsec.hashing.jca.*
-import util.{DevRandom, RandomState}
+import util.{DevRandom, RandomState, StreamUtils}
 
 /**
  * Type alias for an array of Byte.
@@ -105,6 +103,10 @@ object MerkleTreeLeaf {
 
 object MerkleTree {
 
+    import cats.effect.IO
+    import fs2.{Pure, Stream}
+    import util.StreamUtils.*
+
     /**
      * Method to construct a MerkleTree from a sequence of byte arrays (typically corresponding to strings).
      *
@@ -137,16 +139,15 @@ object MerkleTree {
     def mineMerkleTreeBlock[H: Hashable](elements: Seq[String], priorBlockHash: Bytes, nBytesNonce: Int)(miningFunction: Bytes => Boolean)(randomState: RandomState): IO[Option[(Bytes, Bytes)]] = {
         val hh = implicitly[Hashable[H]]
 
-        def rejectNonceWithHash(nwh: IO[(Bytes, Bytes)]): Boolean = (for (z <- nwh) yield !miningFunction(z._2)).unsafeRunSync()
+        def rejectNonceWithHash(nwh: (Bytes, Bytes)): Boolean = !miningFunction(nwh._2)
 
         def nonceAndHash(nonce: Bytes, tree: MerkleTree[H]): IO[(Bytes, Bytes)] = for (hash <- tree.getHash) yield nonce -> hh.bytes(hash)
 
-        val nonces = randomState.lazyList map (r => r.bytes(nBytesNonce))
-        val candidates: LazyList[(Bytes, MerkleTree[H])] = nonces map (nonce => nonce -> MerkleTree[H](merkleTreeBlock(elements, priorBlockHash, nonce)))
-        import cats.implicits.* // Required to sequence Option/IO.
-        // NOTE that sequence won't work properly on a LazyList. I'm not sure if this is a bug or my (RCH) bad logic.
-        // For now, therefore, the rejectNonceWithHash method must invoke unsafeRunSync in order to return an actual Boolean.
-        (candidates map nonceAndHash dropWhile rejectNonceWithHash take 1).headOption.sequence
+        val randomStream = Stream.iterate[IO, RandomState](randomState)(x => x.next)
+        val nonces = randomStream map (x => x.bytes(nBytesNonce))
+        val candidates = nonces map (nonce => nonce -> MerkleTree[H](merkleTreeBlock(elements, priorBlockHash, nonce)))
+        val bbs = (candidates map nonceAndHash).evalMap(identity).dropWhile(rejectNonceWithHash)
+        for (xs <- bbs.take(1).compile.toList) yield xs.headOption
     }
 
     /**
@@ -171,55 +172,64 @@ object MerkleTree {
     def pad(x: Int): String = "  " * x
 }
 
-object test extends App {
+object test extends IOApp {
 
-    (for (bs <- Entropy.getEntropy(64); r = new SecureRandom(bs); _ = println(s"random long: ${r.nextLong()}")) yield ()).unsafeRunSync()
+    def run(args: List[String]): IO[ExitCode] = for {
+        _ <- doRandom()
+        _ <- doHash()
+        _ <- doMining()
+    } yield ExitCode.Success
 
-    val strings = Array(
-        "When I was one-and-twenty",
-        "I heard a wise man say",
-        "Give crowns and pounds and guineas",
-        "But not your heart away",
-        "Give pearls away and rubies",
-        "But keep your fancy free",
-        "But I was one-and-twenty",
-        "No use to talk to me",
-        "When I was one-and-twenty",
-        "I heard him say again",
-        "The heart out of the bosom",
-        "Was never given in vain",
-        "Tis paid with sighs a plenty",
-        "And sold for endless rue",
-        "And I am two-and-twenty",
-        "And oh tis true tis true"
-    )
+    private def doMining(): IO[Unit] = {
+        // Method to check if bytes begins with 20 bits.
+        def checkBlockHash(bytes: Bytes): Boolean = bytes(0) == 0 && bytes(1) == 0 && (bytes(2) & 0xF0) == 0
 
-    val block: Block = MerkleTree.stringsToBlock(strings)
-    val tree: MerkleTree[CryptoHash[SHA256]] = MerkleTree(block)
-    tree.getHash.unsafeRunSync().bytes.foreach(x => print("%02X".format(x)))
-    println()
+        // block chain assignment
+        val transactions = Seq(
+            "Harry pays Robin 1.000",
+            "Maharshi pays Harry 1.000",
+            "Pranshu pays Maharshi 1.000",
+            "Robin pays Pranshu 1.000"
+        )
 
-    // Method to check if bytes begins with 20 bits.
-    def checkBlockHash(bytes: Bytes): Boolean = bytes(0) == 0 && bytes(1) == 0 && (bytes(2) & 0xF0) == 0
-
-    // block chain assignment
-    val transactions = Seq(
-        "Harry pays Robin 1.000",
-        "Maharshi pays Harry 1.000",
-        "Pranshu pays Maharshi 1.000",
-        "Robin pays Pranshu 1.000"
-    )
-
-    val start = System.nanoTime()
-    val priorBlockHash = "00000dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824".getBytes()
-    val result = MerkleTree.mineMerkleTreeBlock(transactions, priorBlockHash, 5)(checkBlockHash)(RandomState(3L)).unsafeRunSync()
-    val end = System.nanoTime()
-    val elapsed = end - start
-    println("duration: " + elapsed + "ns")
-    result match {
-        case Some(nonce, hash) =>
-            println(util.Hex.bytesToHexString(nonce))
-            println(util.Hex.bytesToHexString(hash))
-        case _ => System.err.println("Failed to find a suitable hash")
+        val start = System.nanoTime()
+        val priorBlockHash = "00000dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824".getBytes()
+        val result: IO[Option[(Bytes, Bytes)]] = MerkleTree.mineMerkleTreeBlock(transactions, priorBlockHash, 5)(checkBlockHash)(RandomState(1L))
+        for (x <- result) yield x match {
+            case Some(nonce, hash) =>
+                val end = System.nanoTime()
+                val elapsed = end - start
+                println("duration: " + elapsed + "ns")
+                println(s"Nonce: ${util.Hex.bytesToHexString(nonce)}\nBlock hash: ${util.Hex.bytesToHexString(hash)}")
+            case _ =>
+                println("Failed to find a suitable hash")
+        }
     }
+
+    private def doHash(): IO[Unit] = {
+        val strings = Array(
+            "When I was one-and-twenty",
+            "I heard a wise man say",
+            "Give crowns and pounds and guineas",
+            "But not your heart away",
+            "Give pearls away and rubies",
+            "But keep your fancy free",
+            "But I was one-and-twenty",
+            "No use to talk to me",
+            "When I was one-and-twenty",
+            "I heard him say again",
+            "The heart out of the bosom",
+            "Was never given in vain",
+            "Tis paid with sighs a plenty",
+            "And sold for endless rue",
+            "And I am two-and-twenty",
+            "And oh tis true tis true"
+        )
+
+        val block: Block = MerkleTree.stringsToBlock(strings)
+        val tree: MerkleTree[CryptoHash[SHA256]] = MerkleTree(block)
+        for (x <- tree.getHash; _ <- IO.println(s"Poetry hash: ${util.Hex.bytesToHexString(x.bytes)}")) yield ()
+    }
+
+    private def doRandom(): IO[Unit] = for (bs <- Entropy.getEntropy(64); r = new SecureRandom(bs); _ <- IO.println(s"random long: ${r.nextLong()}")) yield ()
 }

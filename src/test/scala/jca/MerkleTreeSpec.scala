@@ -1,10 +1,10 @@
 package jca
 
 import cats.effect.std.Dispatcher
-import cats.effect.unsafe.implicits.global
+import cats.effect.testing.scalatest.AsyncIOSpec
 import cats.effect.{Async, IO, Resource, Sync}
-import jca.test.tree
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should
 import scala.annotation.tailrec
 import scala.util.Random
@@ -13,85 +13,85 @@ import tsec.hashing.bouncy.Keccak256
 import tsec.hashing.jca.*
 import util.Hex
 
-class MerkleTreeSpec extends AnyFlatSpec with should.Matchers {
+class MerkleTreeSpec extends AsyncFreeSpec with AsyncIOSpec with should.Matchers {
 
-    behavior of "MerkleTree"
+    "MerkleTree" - {
 
-    it should "pad" in {
-        MerkleTree.pad(3) shouldBe "      "
-    }
+        "pad" in {
+            MerkleTree.pad(3) shouldBe "      "
+        }
 
-    it should "apply 1" in {
-        val transactions = Seq(
-            "Harry pays Robin 1.000",
-            "Maharshi pays Harry 1.000",
-            "Pranshu pays Maharshi 1.000",
-            "Robin pays Pranshu 1.000"
-        )
-        val priorBlockHash = Hex.hexStringToBytes("00000dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
-        val nonce = Hex.hexStringToBytes("3ECEA0ECEE")
-        val block = MerkleTree.merkleTreeBlock(transactions, priorBlockHash, nonce)
-        val tree = MerkleTree[CryptoHash[SHA256]](block)
-        tree.toString shouldBe
-                """MerkleTreeNode:
-                  |:left:
-                  |  MerkleTreeNode:
-                  |:  left:
-                  |    MerkleTreeNode:
-                  |:    left:
-                  |      0DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824
-                  |:    right:
-                  |      4861727279207061797320526F62696E20312E303030("Harry pays Robin 1.000")
-                  |
-                  |:  right:
-                  |    MerkleTreeNode:
-                  |:    left:
-                  |      4D61686172736869207061797320486172727920312E303030("Maharshi pays Harry 1.000")
-                  |:    right:
-                  |      5072616E7368752070617973204D6168617273686920312E303030("Pranshu pays Maharshi 1.000")
-                  |
-                  |
-                  |:right:
-                  |  MerkleTreeNode:
-                  |:  left:
-                  |    526F62696E2070617973205072616E73687520312E303030("Robin pays Pranshu 1.000")
-                  |:  right:
-                  |    3ECEA0ECEE
-                  |
-                  |""".stripMargin
-    }
+        "apply 1" in {
+            val transactions = Seq(
+                "Harry pays Robin 1.000",
+                "Maharshi pays Harry 1.000",
+                "Pranshu pays Maharshi 1.000",
+                "Robin pays Pranshu 1.000"
+            )
+            val priorBlockHash = Hex.hexStringToBytes("00000dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+            val nonce = Hex.hexStringToBytes("3ECEA0ECEE")
+            val block = MerkleTree.merkleTreeBlock(transactions, priorBlockHash, nonce)
+            val tree = MerkleTree[CryptoHash[SHA256]](block)
+            tree.toString shouldBe
+                    """MerkleTreeNode:
+                      |:left:
+                      |  MerkleTreeNode:
+                      |:  left:
+                      |    MerkleTreeNode:
+                      |:    left:
+                      |      0DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824
+                      |:    right:
+                      |      4861727279207061797320526F62696E20312E303030("Harry pays Robin 1.000")
+                      |
+                      |:  right:
+                      |    MerkleTreeNode:
+                      |:    left:
+                      |      4D61686172736869207061797320486172727920312E303030("Maharshi pays Harry 1.000")
+                      |:    right:
+                      |      5072616E7368752070617973204D6168617273686920312E303030("Pranshu pays Maharshi 1.000")
+                      |
+                      |
+                      |:right:
+                      |  MerkleTreeNode:
+                      |:  left:
+                      |    526F62696E2070617973205072616E73687520312E303030("Robin pays Pranshu 1.000")
+                      |:  right:
+                      |    3ECEA0ECEE
+                      |
+                      |""".stripMargin
+        }
 
-    it should "apply 2" in {
-        val strings = Array(
-            "When I was one-and-twenty",
-            "I heard a wise man say",
-            "Give crowns and pounds and guineas",
-            "But not your heart away",
-            "Give pearls away and rubies",
-            "But keep your fancy free",
-            "But I was one-and-twenty",
-            "No use to talk to me",
-            "When I was one-and-twenty",
-            "I heard him say again",
-            "The heart out of the bosom",
-            "Was never given in vain",
-            "Tis paid with sighs a plenty",
-            "And sold for endless rue",
-            "And I am two-and-twenty",
-            "And oh tis true tis true"
-        )
-        val block: Seq[(Bytes, Boolean)] = MerkleTree.stringsToBlock(strings)
-        val tree: MerkleTree[CryptoHash[SHA256]] = MerkleTree(block)
-        tree.toString shouldBe
-                """MerkleTreeNode:
-                  |:left:
-                  |  MerkleTreeNode:
-                  |:  left:
-                  |    MerkleTreeNode:
-                  |:    left:
-                  |      MerkleTreeNode:
-                  |:      left:
-                  |        5768656E204920776173206F6E652D616E642D7477656E7479("When I was one-and-twenty")
+        "apply 2" in {
+            val strings = Array(
+                "When I was one-and-twenty",
+                "I heard a wise man say",
+                "Give crowns and pounds and guineas",
+                "But not your heart away",
+                "Give pearls away and rubies",
+                "But keep your fancy free",
+                "But I was one-and-twenty",
+                "No use to talk to me",
+                "When I was one-and-twenty",
+                "I heard him say again",
+                "The heart out of the bosom",
+                "Was never given in vain",
+                "Tis paid with sighs a plenty",
+                "And sold for endless rue",
+                "And I am two-and-twenty",
+                "And oh tis true tis true"
+            )
+            val block: Seq[(Bytes, Boolean)] = MerkleTree.stringsToBlock(strings)
+            val tree: MerkleTree[CryptoHash[SHA256]] = MerkleTree(block)
+            tree.toString shouldBe
+                    """MerkleTreeNode:
+                      |:left:
+                      |  MerkleTreeNode:
+                      |:  left:
+                      |    MerkleTreeNode:
+                      |:    left:
+                      |      MerkleTreeNode:
+                      |:      left:
+                      |        5768656E204920776173206F6E652D616E642D7477656E7479("When I was one-and-twenty")
                   |:      right:
                   |        4920686561726420612077697365206D616E20736179("I heard a wise man say")
                   |
@@ -160,7 +160,8 @@ class MerkleTreeSpec extends AnyFlatSpec with should.Matchers {
                   |
                   |""".stripMargin
         val si = for (x <- tree.getHash; z <- HexEncryption.bytesToHexString(x.bytes)) yield z
-        si.unsafeRunSync() shouldBe "B970CD10245D63690368F7EFEA1C0289115DF3A5310A119F53236FA248BAE0FA"
+            si.asserting(w => w shouldBe "B970CD10245D63690368F7EFEA1C0289115DF3A5310A119F53236FA248BAE0FA")
+    }
     }
 
 }
